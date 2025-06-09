@@ -281,6 +281,17 @@ TRANSLATIONS_EN=(
     ["demo_pg_restore_starting_postgres"]="Starting PostgreSQL service..."
     ["demo_pg_restore_completed"]="PostgreSQL restore completed successfully."
     ["demo_pg_restore_note"]="Note: In a real environment, this operation would restore the PostgreSQL database to the state at the time of backup."
+    ["start_mysql_containers"]="Start MySQL containers only"
+    ["start_postgresql_containers"]="Start PostgreSQL containers only"
+    ["start_all_containers"]="Start all containers"
+    ["stop_containers"]="Stop all containers"
+    ["docker_cleanup"]="Clean up Docker resources"
+    ["back"]="Back to main menu"
+    ["mysql_demo_desc"]="Demonstrates backup and restore of MySQL/MariaDB databases"
+    ["postgresql_demo_desc"]="Demonstrates backup and restore of PostgreSQL databases"
+    ["schedule_demo_desc"]="Shows how to set up scheduled backups"
+    ["retention_demo_desc"]="Explains backup retention policies"
+    ["docker_note"]="Docker demo allows you to run demonstrations in isolated containers without affecting your system"
 )
 
 # Переводы на русском
@@ -525,6 +536,17 @@ TRANSLATIONS_RU=(
     ["demo_pg_restore_starting_postgres"]="Запуск службы PostgreSQL..."
     ["demo_pg_restore_completed"]="Восстановление PostgreSQL успешно завершено."
     ["demo_pg_restore_note"]="Примечание: В реальном окружении эта операция восстановила бы базу данных PostgreSQL до состояния на момент создания резервной копии."
+    ["start_mysql_containers"]="Запустить только контейнеры MySQL"
+    ["start_postgresql_containers"]="Запустить только контейнеры PostgreSQL"
+    ["start_all_containers"]="Запустить все контейнеры"
+    ["stop_containers"]="Остановить все контейнеры"
+    ["docker_cleanup"]="Очистить ресурсы Docker"
+    ["back"]="Вернуться в главное меню"
+    ["mysql_demo_desc"]="Демонстрирует резервное копирование и восстановление баз данных MySQL/MariaDB"
+    ["postgresql_demo_desc"]="Демонстрирует резервное копирование и восстановление баз данных PostgreSQL"
+    ["schedule_demo_desc"]="Показывает, как настроить запланированное резервное копирование"
+    ["retention_demo_desc"]="Объясняет политики хранения резервных копий"
+    ["docker_note"]="Docker-демо позволяет запускать демонстрации в изолированных контейнерах без влияния на вашу систему"
 )
 
 # Проверка наличия строк и добавление недостающих

@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
 
-# Загрузка файла с переводами
-source "$(dirname "$0")/i18n.sh"
+# docker-demo.sh - Скрипт для демонстрации wall-be в Docker-контейнерах
+
+# Определение пути к директории скрипта
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &> /dev/null && pwd)"
+
+# Загрузка переводов
+source "$SCRIPT_DIR/i18n.sh"
 
 # Установка обработчика сигнала для корректного завершения
 trap cleanup EXIT
@@ -33,116 +38,101 @@ check_docker_group() {
     return 0
 }
 
-# Функция для запуска Docker-контейнеров
+# Функция для запуска контейнеров Docker
 start_containers() {
-    clear
-    echo -e "\e[1m$(t docker_demo_title)\e[0m"
-    echo "========================================"
-    echo ""
-    
-    # Проверка на наличие Docker и Docker Compose
-    if ! command -v docker &> /dev/null; then
-        echo "$(t docker_not_installed)"
-        echo "$(t docker_install_required)"
-        read -p "$(t press_enter)" _
-        return 1
-    fi
-
-    # Проверка на наличие пользователя в группе docker
-    if ! check_docker_group; then
-        return 1
-    fi
-
-    # Проверка на запущенный Docker демон
-    if ! docker info &> /dev/null; then
-        echo "$(t docker_not_running)"
-        echo "$(t start_docker_daemon)"
-        read -p "$(t press_enter)" _
-        return 1
-    fi
-
     echo "$(t starting_containers)"
     
-    # Определяем команду docker-compose (может быть как отдельная команда, так и подкоманда docker)
-    COMPOSE_CMD=""
-    if command -v docker-compose &> /dev/null; then
-        COMPOSE_CMD="docker-compose"
-    elif docker compose version &> /dev/null; then
-        COMPOSE_CMD="docker compose"
-    else
+    # Проверка наличия docker-compose
+    if ! command -v docker-compose &> /dev/null && ! docker compose version &> /dev/null; then
         echo "$(t docker_compose_not_found)"
         read -p "$(t press_enter)" _
         return 1
     fi
     
-    # Запуск контейнеров с помощью docker-compose
-    $COMPOSE_CMD -f "$(dirname "$0")/docker/docker-compose.yml" up -d
+    # Остановим контейнеры, если они уже запущены
+    stop_containers > /dev/null 2>&1
     
-    # Проверка успешности запуска
+    # Запускаем контейнеры с учетом выбранного профиля
+    local compose_cmd
+    if command -v docker-compose &> /dev/null; then
+        compose_cmd="docker-compose"
+    else
+        compose_cmd="docker compose"
+    fi
+    
+    cd "$SCRIPT_DIR/docker"
+    
+    if [ "$1" == "mysql" ]; then
+        # Запускаем только MySQL контейнеры
+        $compose_cmd --profile mysql up -d
+    elif [ "$1" == "postgresql" ]; then
+        # Запускаем только PostgreSQL контейнеры
+        $compose_cmd --profile postgresql up -d
+    else
+        # Запускаем все контейнеры
+        $compose_cmd --profile all up -d
+    fi
+    
     if [ $? -ne 0 ]; then
         echo "$(t container_start_failed)"
-        read -p "$(t press_enter)" _
+        cd - > /dev/null
         return 1
     fi
     
     echo "$(t waiting_for_services)"
-    # Даем время на запуск сервисов
     sleep 5
     
     echo "$(t checking_containers)"
-    # Проверка статуса контейнеров
-    $COMPOSE_CMD -f "$(dirname "$0")/docker/docker-compose.yml" ps
+    if [ "$1" == "mysql" ] && ! docker ps | grep -q wall-be-mysql; then
+        echo "$(t container_start_failed)"
+        cd - > /dev/null
+        return 1
+    fi
+    
+    if [ "$1" == "postgresql" ] && ! docker ps | grep -q wall-be-postgres; then
+        echo "$(t container_start_failed)"
+        cd - > /dev/null
+        return 1
+    fi
     
     echo "$(t containers_started)"
-    read -p "$(t press_enter)" _
+    cd - > /dev/null
     return 0
 }
 
-# Функция для остановки Docker-контейнеров
+# Функция для остановки контейнеров Docker
 stop_containers() {
-    clear
-    echo -e "\e[1m$(t docker_demo_title)\e[0m"
-    echo "========================================"
-    echo ""
-    
     echo "$(t stopping_containers)"
     
-    # Определяем команду docker-compose
-    COMPOSE_CMD=""
+    # Проверка наличия docker-compose
+    local compose_cmd
     if command -v docker-compose &> /dev/null; then
-        COMPOSE_CMD="docker-compose"
+        compose_cmd="docker-compose"
     elif docker compose version &> /dev/null; then
-        COMPOSE_CMD="docker compose"
+        compose_cmd="docker compose"
     else
         echo "$(t docker_compose_not_found)"
-        read -p "$(t press_enter)" _
         return 1
     fi
+    
+    cd "$SCRIPT_DIR/docker"
     
     # Остановка контейнеров
-    $COMPOSE_CMD -f "$(dirname "$0")/docker/docker-compose.yml" down
+    $compose_cmd down
     
-    # Проверка успешности остановки
     if [ $? -ne 0 ]; then
         echo "$(t stopping_failed)"
-        read -p "$(t press_enter)" _
+        cd - > /dev/null
         return 1
     fi
     
-    # Проверяем, что все контейнеры остановлены
-    if docker ps | grep -q "wall-be"; then
-        echo "$(t stopping_failed)"
-        read -p "$(t press_enter)" _
-        return 1
-    else
-        echo "$(t containers_stopped)"
-        read -p "$(t press_enter)" _
-        return 0
-    fi
+    echo "$(t containers_stopped)"
+    cd - > /dev/null
+    return 0
 }
 
 # Функция для очистки Docker-ресурсов
-cleanup_docker() {
+docker_cleanup() {
     clear
     echo -e "\e[1m$(t docker_demo_title)\e[0m"
     echo "========================================"
@@ -150,37 +140,45 @@ cleanup_docker() {
     
     echo "$(t cleanup_docker)"
     echo "$(t cleanup_warning)"
-    
     read -p "$(t continue_cleanup) " confirm
+    
     if [[ $confirm != [yY] ]]; then
         echo "$(t cleanup_cancelled)"
         read -p "$(t press_enter)" _
-        return 1
+        return 0
     fi
     
-    # Определяем команду docker-compose
-    COMPOSE_CMD=""
+    # Останавливаем все контейнеры
+    stop_containers > /dev/null 2>&1
+    
+    echo "$(t cleanup_docker)"
+    
+    # Проверка наличия docker-compose
+    local compose_cmd
     if command -v docker-compose &> /dev/null; then
-        COMPOSE_CMD="docker-compose"
+        compose_cmd="docker-compose"
     elif docker compose version &> /dev/null; then
-        COMPOSE_CMD="docker compose"
+        compose_cmd="docker compose"
     else
         echo "$(t docker_compose_not_found)"
         read -p "$(t press_enter)" _
         return 1
     fi
     
-    # Остановка и удаление контейнеров
-    $COMPOSE_CMD -f "$(dirname "$0")/docker/docker-compose.yml" down -v
+    cd "$SCRIPT_DIR/docker"
     
-    # Удаление образов
-    docker rmi $(docker images --filter "reference=wall-be-*" -q) 2>/dev/null || true
+    # Удаляем все контейнеры, образы и тома
+    $compose_cmd down -v --rmi all --remove-orphans
     
-    # Удаление неиспользуемых томов
+    # Удаляем все образы связанные с wall-be
+    docker images | grep wall-be | awk '{print $3}' | xargs -r docker rmi -f
+    
+    # Удаляем все Docker-ресурсы, связанные с демонстрацией
     docker volume prune -f
     
     echo "$(t docker_cleanup_complete)"
     read -p "$(t press_enter)" _
+    cd - > /dev/null
     return 0
 }
 
@@ -196,8 +194,8 @@ mysql_docker_demo() {
         echo "$(t mysql_container_not_running)"
         echo "$(t starting_containers_automatically)"
         
-        # Запускаем контейнеры автоматически
-        if ! start_containers; then
+        # Запускаем только MySQL контейнеры
+        if ! start_containers "mysql"; then
             echo "$(t container_start_failed)"
             read -p "$(t press_enter)" _
             return 1
@@ -281,8 +279,8 @@ postgresql_docker_demo() {
         echo "$(t postgres_container_not_running)"
         echo "$(t starting_containers_automatically)"
         
-        # Запускаем контейнеры автоматически
-        if ! start_containers; then
+        # Запускаем только PostgreSQL контейнеры
+        if ! start_containers "postgresql"; then
             echo "$(t container_start_failed)"
             read -p "$(t press_enter)" _
             return 1
@@ -355,6 +353,147 @@ postgresql_docker_demo() {
     return 0
 }
 
+# Функция для просмотра README
+readme_demo() {
+    clear
+    echo -e "\e[1m$(t readme_title)\e[0m"
+    echo "========================================"
+    echo ""
+    
+    # Показываем содержимое README
+    echo "$(t readme_intro)"
+    echo ""
+    echo "1. $(t mysql_demo) - $(t mysql_demo_desc)"
+    echo "2. $(t postgresql_demo) - $(t postgresql_demo_desc)"
+    echo "3. $(t schedule_demo) - $(t schedule_demo_desc)"
+    echo "4. $(t retention_demo) - $(t retention_demo_desc)"
+    echo ""
+    echo "$(t docker_note)"
+    echo ""
+    
+    read -p "$(t press_enter)" _
+    return 0
+}
+
+# Функция для демонстрации расписаний
+schedule_demo() {
+    clear
+    echo -e "\e[1m$(t schedule_demo_title)\e[0m"
+    echo "========================================"
+    echo ""
+    
+    echo "$(t cron_examples):"
+    echo "$(t daily_2am): 0 2 * * *"
+    echo "$(t monday_330am): 30 3 * * 1"
+    echo "$(t every_6_hours): 0 */6 * * *"
+    echo "$(t first_day_month): 0 4 1 * *"
+    echo ""
+    
+    echo "$(t schedule_command):"
+    echo "wall-be schedule --cron=\"0 2 * * *\" --config=config.env"
+    echo ""
+    
+    echo "$(t crontab_example):"
+    echo "$(t backup_mysql_daily)"
+    echo "0 2 * * * /usr/local/bin/wall-be backup --config=/etc/wall-be/config.env"
+    echo ""
+    
+    echo "$(t shell_script_example):"
+    echo "#!/bin/bash"
+    echo "source /etc/wall-be/config.env"
+    echo "wall-be backup"
+    echo ""
+    
+    read -p "$(t press_enter)" _
+    return 0
+}
+
+# Функция для демонстрации политик хранения
+retention_demo() {
+    clear
+    echo -e "\e[1m$(t retention_demo_title)\e[0m"
+    echo "========================================"
+    echo ""
+    
+    echo "$(t available_policies):"
+    echo "$(t full_backups_policy) (WALG_RETENTION_FULL_BACKUPS=5)"
+    echo "$(t days_policy) (WALG_RETENTION_DAYS=7)"
+    echo "$(t count_policy) (WALG_RETENTION_COUNT=10)"
+    echo ""
+    
+    echo "$(t config_example):"
+    echo "WALG_RETENTION_FULL_BACKUPS=5"
+    echo "WALG_RETENTION_DAYS=7"
+    echo "WALG_RETENTION_COUNT=10"
+    echo ""
+    
+    echo "$(t retention_command):"
+    echo "wall-be backup --apply-retention"
+    echo ""
+    
+    echo "$(t retention_logic):"
+    echo "$(t retention_logic_1)"
+    echo "$(t retention_logic_1_detail)"
+    echo "$(t retention_logic_2)"
+    echo "$(t retention_logic_2_detail_1)"
+    echo "$(t retention_logic_2_detail_2)"
+    echo ""
+    
+    read -p "$(t press_enter)" _
+    return 0
+}
+
+# Функция для меню управления Docker
+docker_management() {
+    clear
+    echo -e "\e[1m$(t docker_management)\e[0m"
+    echo "========================================"
+    echo ""
+    
+    echo "$(t select_option):"
+    echo "1. $(t start_mysql_containers)"
+    echo "2. $(t start_postgresql_containers)" 
+    echo "3. $(t start_all_containers)"
+    echo "4. $(t stop_containers)"
+    echo "5. $(t docker_cleanup)"
+    echo "6. $(t back)"
+    echo ""
+    
+    read -p "$(t enter_number) " choice
+    
+    case $choice in
+        1)
+            start_containers "mysql"
+            read -p "$(t press_enter)" _
+            ;;
+        2)
+            start_containers "postgresql"
+            read -p "$(t press_enter)" _
+            ;;
+        3)
+            start_containers "all"
+            read -p "$(t press_enter)" _
+            ;;
+        4)
+            stop_containers
+            read -p "$(t press_enter)" _
+            ;;
+        5)
+            docker_cleanup
+            ;;
+        6)
+            return 0
+            ;;
+        *)
+            echo "$(t invalid_choice)"
+            read -p "$(t press_enter)" _
+            ;;
+    esac
+    
+    # Возвращаемся в это же меню
+    docker_management
+}
+
 # Основная функция с меню демонстрации
 main_menu() {
     while true; do
@@ -384,65 +523,21 @@ main_menu() {
                 postgresql_docker_demo
                 ;;
             3)
-                # Вызов функции демонстрации расписаний
-                source "$(dirname "$0")/demo.sh"
                 schedule_demo
                 ;;
             4)
-                # Вызов функции демонстрации политик хранения
-                source "$(dirname "$0")/demo.sh"
                 retention_demo
                 ;;
             5)
-                # Показать README
-                source "$(dirname "$0")/readme_content.sh"
-                show_readme
+                readme_demo
                 ;;
             6)
-                # Подменю для управления Docker
-                docker_menu
+                docker_management
                 ;;
             7)
                 echo "$(t exiting)"
+                stop_containers > /dev/null 2>&1
                 exit 0
-                ;;
-            *)
-                echo "$(t invalid_choice)"
-                read -p "$(t press_enter)" _
-                ;;
-        esac
-    done
-}
-
-# Функция для меню управления Docker
-docker_menu() {
-    while true; do
-        clear
-        echo -e "\e[1m$(t docker_management)\e[0m"
-        echo "========================================"
-        echo ""
-        echo "$(t select_option)"
-        echo ""
-        echo "1. $(t starting_containers)"
-        echo "2. $(t stopping_containers)"
-        echo "3. $(t cleanup_docker)"
-        echo "4. $(t return_main_menu)"
-        echo ""
-
-        read -p "$(t enter_number) " choice
-
-        case $choice in
-            1)
-                start_containers
-                ;;
-            2)
-                stop_containers
-                ;;
-            3)
-                cleanup_docker
-                ;;
-            4)
-                return
                 ;;
             *)
                 echo "$(t invalid_choice)"
