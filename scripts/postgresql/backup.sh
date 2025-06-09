@@ -2,15 +2,32 @@
 set -e
 
 # Source configuration
-if [ -f "config-pg.env" ]; then
-    source config-pg.env
+if [ -f "$WALL_BE_CONFIG_FILE" ]; then
+    source "$WALL_BE_CONFIG_FILE"
 else
-    echo "config-pg.env file not found. Please create it from the template."
+    echo "Configuration file not found. Please specify a config file with --config."
     exit 1
 fi
 
 LOG_FILE="/var/log/wal-g/pg-backup-$(date +%Y%m%d%H%M%S).log"
 mkdir -p /var/log/wal-g
+
+# Detect WAL-G binary path
+WALG_BIN="${WALG_PG_BINPATH:-/usr/local/bin/wal-g}"
+
+if [ ! -f "$WALG_BIN" ]; then
+    # Try alternative paths
+    if [ -f "/usr/local/bin/wal-g-pg" ]; then
+        WALG_BIN="/usr/local/bin/wal-g-pg"
+    elif [ -f "/usr/local/bin/wal-g" ]; then
+        WALG_BIN="/usr/local/bin/wal-g"
+    else
+        echo "WAL-G binary not found. Please install WAL-G or specify WALG_PG_BINPATH."
+        exit 1
+    fi
+fi
+
+echo "Using WAL-G binary: $WALG_BIN"
 
 # Function to send notification
 send_notification() {
@@ -51,7 +68,7 @@ verify_backup() {
     echo "Verifying backup: $backup_name"
     
     # List backups to verify it exists
-    if ! sudo -u postgres wal-g backup-list 2>/dev/null | grep -q "$backup_name"; then
+    if ! sudo -u postgres $WALG_BIN backup-list 2>/dev/null | grep -q "$backup_name"; then
         echo "ERROR: Backup verification failed. Backup not found in storage."
         return 1
     fi
@@ -67,17 +84,17 @@ cleanup_old_backups() {
     # Delete old backups based on retention settings
     if [ -n "$WALG_RETENTION_FULL_BACKUPS" ]; then
         echo "Retaining only $WALG_RETENTION_FULL_BACKUPS full backups..."
-        sudo -u postgres wal-g backup-retain FULL "$WALG_RETENTION_FULL_BACKUPS" --confirm
+        sudo -u postgres $WALG_BIN backup-retain FULL "$WALG_RETENTION_FULL_BACKUPS" --confirm
     fi
     
     if [ -n "$WALG_RETENTION_DAYS" ]; then
         echo "Retaining backups made within $WALG_RETENTION_DAYS days..."
-        sudo -u postgres wal-g backup-retain DAYS "$WALG_RETENTION_DAYS" --confirm
+        sudo -u postgres $WALG_BIN backup-retain DAYS "$WALG_RETENTION_DAYS" --confirm
     fi
     
     if [ -n "$WALG_RETENTION_COUNT" ]; then
         echo "Retaining only $WALG_RETENTION_COUNT most recent backups..."
-        sudo -u postgres wal-g backup-retain COUNT "$WALG_RETENTION_COUNT" --confirm
+        sudo -u postgres $WALG_BIN backup-retain COUNT "$WALG_RETENTION_COUNT" --confirm
     fi
     
     echo "Cleanup completed."
@@ -106,11 +123,11 @@ perform_backup() {
     if [ "$USE_WALG_UPLOAD" = "true" ]; then
         # Use WAL-G's built-in backup command
         echo "Using wal-g backup-push..."
-        sudo -u postgres wal-g backup-push --permanent "$backup_name"
+        sudo -u postgres $WALG_BIN backup-push --permanent "$backup_name"
     else
         # For compatibility with older WAL-G versions
         echo "Using pg_basebackup with wal-g..."
-        sudo -u postgres wal-g backup-push "$PGDATA"
+        sudo -u postgres $WALG_BIN backup-push "$PGDATA"
     fi
     
     local end_time=$(date +%s)
@@ -135,12 +152,6 @@ perform_backup() {
     echo "Backup process completed successfully."
     return 0
 }
-
-# Check if WAL-G is installed
-if ! command -v wal-g >/dev/null 2>&1 && ! command -v wal-g-pg >/dev/null 2>&1; then
-    echo "WAL-G is not installed. Please run pg_setup.sh first."
-    exit 1
-fi
 
 # Parse command line arguments
 BACKUP_TYPE="full"
@@ -169,7 +180,7 @@ done
 {
     if [ -n "$CUSTOM_NAME" ]; then
         echo "Using custom backup name: $CUSTOM_NAME"
-        sudo -u postgres wal-g backup-push --permanent "$CUSTOM_NAME"
+        sudo -u postgres $WALG_BIN backup-push --permanent "$CUSTOM_NAME"
     else
         perform_backup "$BACKUP_TYPE"
     fi

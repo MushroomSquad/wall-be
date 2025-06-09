@@ -259,9 +259,9 @@ install_docker() {
 
 # Установка WAL-G
 install_walg() {
-    local walg_dir="/usr/local/bin/wal-g"
+    local walg_dir="/usr/local/bin"
     
-    if [ -f "$walg_dir" ]; then
+    if [ -f "$walg_dir/wal-g" ]; then
         echo "$(t already_installed) WAL-G"
         return 0
     fi
@@ -293,14 +293,31 @@ install_walg() {
         arch="arm64"
     fi
     
-    # Скачиваем последнюю версию WAL-G
-    curl -L "https://github.com/wal-g/wal-g/releases/latest/download/wal-g-pg-ubuntu-$arch.tar.gz" -o wal-g.tar.gz
-    tar -xzf wal-g.tar.gz
-    mv wal-g /usr/local/bin/
-    chmod +x /usr/local/bin/wal-g
+    # Скачиваем последнюю версию WAL-G для MySQL
+    echo "$(t downloading) WAL-G for MySQL..."
+    curl -L "https://github.com/wal-g/wal-g/releases/latest/download/wal-g-mysql-ubuntu-$arch.tar.gz" -o wal-g-mysql.tar.gz
+    
+    # Скачиваем последнюю версию WAL-G для PostgreSQL
+    echo "$(t downloading) WAL-G for PostgreSQL..."
+    curl -L "https://github.com/wal-g/wal-g/releases/latest/download/wal-g-pg-ubuntu-$arch.tar.gz" -o wal-g-pg.tar.gz
+    
+    # Распаковываем и устанавливаем WAL-G для MySQL
+    echo "$(t extracting) WAL-G for MySQL..."
+    tar -xzf wal-g-mysql.tar.gz
+    cp wal-g-mysql /usr/local/bin/wal-g-mysql
+    chmod +x /usr/local/bin/wal-g-mysql
+    
+    # Распаковываем и устанавливаем WAL-G для PostgreSQL
+    echo "$(t extracting) WAL-G for PostgreSQL..."
+    tar -xzf wal-g-pg.tar.gz
+    cp wal-g-pg /usr/local/bin/wal-g-pg
+    chmod +x /usr/local/bin/wal-g-pg
+    
+    # Создаем символические ссылки для общей команды
+    ln -sf /usr/local/bin/wal-g-pg /usr/local/bin/wal-g
     
     # Проверяем успешность установки
-    if [ -f "/usr/local/bin/wal-g" ]; then
+    if [ -f "/usr/local/bin/wal-g-mysql" ] && [ -f "/usr/local/bin/wal-g-pg" ]; then
         echo -e "${GREEN}$(t walg_installed)${RESET}"
         rm -rf $temp_dir
         return 0
@@ -362,6 +379,7 @@ WALG_MYSQL_HOST=localhost
 WALG_MYSQL_USER=wall_be
 WALG_MYSQL_PASSWORD=wall_be_pass
 WALG_MYSQL_DATABASE=wall_be_demo
+WALG_MYSQL_BINPATH=/usr/local/bin/wal-g-mysql
 WALG_FILE_PREFIX=file:///var/lib/wall-be/backups/mysql
 WALG_COMPRESSION_METHOD=lz4
 WALG_RETENTION_FULL_BACKUPS=5
@@ -373,6 +391,7 @@ PGHOST=localhost
 PGUSER=wall_be
 PGPASSWORD=wall_be_pass
 PGDATABASE=wall_be_demo
+WALG_PG_BINPATH=/usr/local/bin/wal-g-pg
 WALG_FILE_PREFIX=file:///var/lib/wall-be/backups/postgresql
 WALG_COMPRESSION_METHOD=lz4
 WALG_RETENTION_FULL_BACKUPS=5

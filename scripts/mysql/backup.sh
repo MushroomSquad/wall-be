@@ -2,15 +2,32 @@
 set -e
 
 # Source configuration
-if [ -f "config.env" ]; then
-    source config.env
+if [ -f "$WALL_BE_CONFIG_FILE" ]; then
+    source "$WALL_BE_CONFIG_FILE"
 else
-    echo "config.env file not found. Please create it from the template."
+    echo "Configuration file not found. Please specify a config file with --config."
     exit 1
 fi
 
 LOG_FILE="/var/log/wal-g/backup-$(date +%Y%m%d%H%M%S).log"
 mkdir -p /var/log/wal-g
+
+# Detect WAL-G binary path
+WALG_BIN="${WALG_MYSQL_BINPATH:-/usr/local/bin/wal-g}"
+
+if [ ! -f "$WALG_BIN" ]; then
+    # Try alternative paths
+    if [ -f "/usr/local/bin/wal-g-mysql" ]; then
+        WALG_BIN="/usr/local/bin/wal-g-mysql"
+    elif [ -f "/usr/local/bin/wal-g" ]; then
+        WALG_BIN="/usr/local/bin/wal-g"
+    else
+        echo "WAL-G binary not found. Please install WAL-G or specify WALG_MYSQL_BINPATH."
+        exit 1
+    fi
+fi
+
+echo "Using WAL-G binary: $WALG_BIN"
 
 # Function to send notification
 send_notification() {
@@ -51,7 +68,7 @@ verify_backup() {
     echo "Verifying backup: $backup_name"
     
     # List backups to verify it exists
-    if ! wal-g backup-list 2>/dev/null | grep -q "$backup_name"; then
+    if ! $WALG_BIN backup-list 2>/dev/null | grep -q "$backup_name"; then
         echo "ERROR: Backup verification failed. Backup not found in storage."
         return 1
     fi
@@ -67,17 +84,17 @@ cleanup_old_backups() {
     # Delete old backups based on retention settings
     if [ -n "$WALG_RETENTION_FULL_BACKUPS" ]; then
         echo "Retaining only $WALG_RETENTION_FULL_BACKUPS full backups..."
-        wal-g backup-retain FULL "$WALG_RETENTION_FULL_BACKUPS" --confirm
+        $WALG_BIN backup-retain FULL "$WALG_RETENTION_FULL_BACKUPS" --confirm
     fi
     
     if [ -n "$WALG_RETENTION_DAYS" ]; then
         echo "Retaining backups made within $WALG_RETENTION_DAYS days..."
-        wal-g backup-retain DAYS "$WALG_RETENTION_DAYS" --confirm
+        $WALG_BIN backup-retain DAYS "$WALG_RETENTION_DAYS" --confirm
     fi
     
     if [ -n "$WALG_RETENTION_COUNT" ]; then
         echo "Retaining only $WALG_RETENTION_COUNT most recent backups..."
-        wal-g backup-retain COUNT "$WALG_RETENTION_COUNT" --confirm
+        $WALG_BIN backup-retain COUNT "$WALG_RETENTION_COUNT" --confirm
     fi
     
     echo "Cleanup completed."
@@ -105,10 +122,10 @@ perform_backup() {
     # Choose backup command based on backup type
     if [ "$backup_type" = "xtrabackup" ]; then
         echo "Using xtrabackup for backup..."
-        wal-g xtrabackup-push --permanent "$backup_name"
+        $WALG_BIN xtrabackup-push --permanent "$backup_name"
     else
         echo "Using standard backup-push..."
-        wal-g backup-push --permanent "$backup_name"
+        $WALG_BIN backup-push --permanent "$backup_name"
     fi
     
     local end_time=$(date +%s)
@@ -125,9 +142,9 @@ perform_backup() {
     fi
     
     # Upload binlog if available
-    if command -v wal-g binlog-push >/dev/null 2>&1; then
+    if command -v $WALG_BIN binlog-push >/dev/null 2>&1; then
         echo "Uploading binary logs..."
-        wal-g binlog-push || true
+        $WALG_BIN binlog-push || true
     fi
     
     # Clean up old backups
@@ -139,12 +156,6 @@ perform_backup() {
     echo "Backup process completed successfully."
     return 0
 }
-
-# Check if WAL-G is installed
-if ! command -v wal-g >/dev/null 2>&1; then
-    echo "WAL-G is not installed. Please run setup.sh first."
-    exit 1
-fi
 
 # Parse command line arguments
 BACKUP_TYPE="${BACKUP_TYPE:-xtrabackup}"
@@ -173,7 +184,7 @@ done
 {
     if [ -n "$CUSTOM_NAME" ]; then
         echo "Using custom backup name: $CUSTOM_NAME"
-        wal-g backup-push --permanent "$CUSTOM_NAME"
+        $WALG_BIN backup-push --permanent "$CUSTOM_NAME"
     else
         perform_backup "$BACKUP_TYPE"
     fi
