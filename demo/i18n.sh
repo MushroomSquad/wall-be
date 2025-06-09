@@ -190,6 +190,20 @@ TRANSLATIONS_EN=(
     ["continue_cleanup"]="Continue with cleanup? (y/n): "
     ["cleanup_cancelled"]="Cleanup cancelled"
     ["docker_cleanup_complete"]="Docker resources cleanup complete"
+    ["docker_management"]="Docker Management"
+    ["starting_containers_automatically"]="Starting containers automatically..."
+    ["container_start_failed"]="Failed to start containers"
+    ["waiting_for_mysql_init"]="Waiting for MySQL to initialize..."
+    ["waiting_for_postgres_init"]="Waiting for PostgreSQL to initialize..."
+    ["select_option"]="Select an option"
+    ["docker_compose_not_found"]="Error: Docker Compose not found. Please install Docker Compose or Docker Compose plugin."
+    ["checking_mysql_connection"]="Checking MySQL connection..."
+    ["mysql_connection_failed"]="Failed to connect to MySQL server"
+    ["demo_data_creation_failed"]="Failed to create demo data"
+    ["backup_creation_failed"]="Failed to create backup"
+    ["restore_failed"]="Failed to restore from backup"
+    ["checking_postgres_connection"]="Checking PostgreSQL connection..."
+    ["postgres_connection_failed"]="Failed to connect to PostgreSQL server"
     
     # Автотесты
     ["autotest_title"]="WALL-BE AUTOMATED TESTING"
@@ -219,8 +233,6 @@ TRANSLATIONS_EN=(
     ["test_modify_data"]="Modify data"
     ["test_restore"]="Restore backup"
     ["test_verify_data"]="Verify data"
-    ["mysql_connection_failed"]="Failed to connect to MySQL"
-    ["postgresql_connection_failed"]="Failed to connect to PostgreSQL"
     
     # README
     ["readme_title"]="WALL-BE DEMO DOCUMENTATION"
@@ -422,6 +434,20 @@ TRANSLATIONS_RU=(
     ["continue_cleanup"]="Продолжить очистку? (y/n): "
     ["cleanup_cancelled"]="Очистка отменена"
     ["docker_cleanup_complete"]="Очистка ресурсов Docker завершена"
+    ["docker_management"]="Управление Docker"
+    ["starting_containers_automatically"]="Запуск контейнеров автоматически..."
+    ["container_start_failed"]="Не удалось запустить контейнеры"
+    ["waiting_for_mysql_init"]="Ожидание инициализации MySQL..."
+    ["waiting_for_postgres_init"]="Ожидание инициализации PostgreSQL..."
+    ["select_option"]="Выберите опцию"
+    ["docker_compose_not_found"]="Ошибка: Docker Compose не найден. Пожалуйста, установите Docker Compose или плагин Docker Compose."
+    ["checking_mysql_connection"]="Проверка подключения к MySQL..."
+    ["mysql_connection_failed"]="Не удалось подключиться к серверу MySQL"
+    ["demo_data_creation_failed"]="Не удалось создать демо-данные"
+    ["backup_creation_failed"]="Не удалось создать резервную копию"
+    ["restore_failed"]="Не удалось восстановить из резервной копии"
+    ["checking_postgres_connection"]="Проверка подключения к PostgreSQL..."
+    ["postgres_connection_failed"]="Не удалось подключиться к серверу PostgreSQL"
     
     # Автотесты
     ["autotest_title"]="WALL-BE АВТОМАТИЧЕСКОЕ ТЕСТИРОВАНИЕ"
@@ -451,8 +477,6 @@ TRANSLATIONS_RU=(
     ["test_modify_data"]="Изменение данных"
     ["test_restore"]="Восстановление резервной копии"
     ["test_verify_data"]="Проверка данных"
-    ["mysql_connection_failed"]="Не удалось подключиться к MySQL"
-    ["postgresql_connection_failed"]="Не удалось подключиться к PostgreSQL"
     
     # README
     ["readme_title"]="ДОКУМЕНТАЦИЯ ПО ДЕМОНСТРАЦИИ WALL-BE"

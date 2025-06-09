@@ -63,8 +63,27 @@ start_containers() {
 
     echo "$(t starting_containers)"
     
+    # Определяем команду docker-compose (может быть как отдельная команда, так и подкоманда docker)
+    COMPOSE_CMD=""
+    if command -v docker-compose &> /dev/null; then
+        COMPOSE_CMD="docker-compose"
+    elif docker compose version &> /dev/null; then
+        COMPOSE_CMD="docker compose"
+    else
+        echo "$(t docker_compose_not_found)"
+        read -p "$(t press_enter)" _
+        return 1
+    fi
+    
     # Запуск контейнеров с помощью docker-compose
-    docker-compose -f "$(dirname "$0")/docker/docker-compose.yml" up -d
+    $COMPOSE_CMD -f "$(dirname "$0")/docker/docker-compose.yml" up -d
+    
+    # Проверка успешности запуска
+    if [ $? -ne 0 ]; then
+        echo "$(t container_start_failed)"
+        read -p "$(t press_enter)" _
+        return 1
+    fi
     
     echo "$(t waiting_for_services)"
     # Даем время на запуск сервисов
@@ -72,7 +91,7 @@ start_containers() {
     
     echo "$(t checking_containers)"
     # Проверка статуса контейнеров
-    docker-compose -f "$(dirname "$0")/docker/docker-compose.yml" ps
+    $COMPOSE_CMD -f "$(dirname "$0")/docker/docker-compose.yml" ps
     
     echo "$(t containers_started)"
     read -p "$(t press_enter)" _
@@ -88,11 +107,30 @@ stop_containers() {
     
     echo "$(t stopping_containers)"
     
-    # Остановка контейнеров
-    docker-compose -f "$(dirname "$0")/docker/docker-compose.yml" down
+    # Определяем команду docker-compose
+    COMPOSE_CMD=""
+    if command -v docker-compose &> /dev/null; then
+        COMPOSE_CMD="docker-compose"
+    elif docker compose version &> /dev/null; then
+        COMPOSE_CMD="docker compose"
+    else
+        echo "$(t docker_compose_not_found)"
+        read -p "$(t press_enter)" _
+        return 1
+    fi
     
-    # Проверка, что все контейнеры остановлены
-    if docker-compose -f "$(dirname "$0")/docker/docker-compose.yml" ps | grep -q Up; then
+    # Остановка контейнеров
+    $COMPOSE_CMD -f "$(dirname "$0")/docker/docker-compose.yml" down
+    
+    # Проверка успешности остановки
+    if [ $? -ne 0 ]; then
+        echo "$(t stopping_failed)"
+        read -p "$(t press_enter)" _
+        return 1
+    fi
+    
+    # Проверяем, что все контейнеры остановлены
+    if docker ps | grep -q "wall-be"; then
         echo "$(t stopping_failed)"
         read -p "$(t press_enter)" _
         return 1
@@ -120,8 +158,20 @@ cleanup_docker() {
         return 1
     fi
     
+    # Определяем команду docker-compose
+    COMPOSE_CMD=""
+    if command -v docker-compose &> /dev/null; then
+        COMPOSE_CMD="docker-compose"
+    elif docker compose version &> /dev/null; then
+        COMPOSE_CMD="docker compose"
+    else
+        echo "$(t docker_compose_not_found)"
+        read -p "$(t press_enter)" _
+        return 1
+    fi
+    
     # Остановка и удаление контейнеров
-    docker-compose -f "$(dirname "$0")/docker/docker-compose.yml" down -v
+    $COMPOSE_CMD -f "$(dirname "$0")/docker/docker-compose.yml" down -v
     
     # Удаление образов
     docker rmi $(docker images --filter "reference=wall-be-*" -q) 2>/dev/null || true
@@ -141,25 +191,56 @@ mysql_docker_demo() {
     echo "========================================"
     echo ""
     
-    # Проверка на запущенный контейнер MySQL
+    # Проверка и запуск контейнеров, если они не запущены
     if ! docker ps | grep -q wall-be-mysql; then
         echo "$(t mysql_container_not_running)"
-        echo "$(t start_containers_first)"
+        echo "$(t starting_containers_automatically)"
+        
+        # Запускаем контейнеры автоматически
+        if ! start_containers; then
+            echo "$(t container_start_failed)"
+            read -p "$(t press_enter)" _
+            return 1
+        fi
+        
+        # Даем дополнительное время для инициализации MySQL
+        echo "$(t waiting_for_mysql_init)"
+        sleep 5
+    fi
+    
+    # Проверка готовности MySQL к работе
+    echo "$(t checking_mysql_connection)"
+    if ! docker exec -it wall-be-mysql mysqladmin -u root -proot ping &>/dev/null; then
+        echo "$(t mysql_connection_failed)"
         read -p "$(t press_enter)" _
         return 1
     fi
     
+    # Создание тестовой базы и данных
     echo "$(t creating_test_db)"
     docker exec -it wall-be-mysql mysql -u root -proot -e "CREATE DATABASE IF NOT EXISTS wallbe_demo; USE wallbe_demo; CREATE TABLE IF NOT EXISTS demo_data (id INT AUTO_INCREMENT PRIMARY KEY, data VARCHAR(255), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP); INSERT INTO demo_data (data) VALUES ('Demo data 1'), ('Demo data 2');"
+    
+    if [ $? -ne 0 ]; then
+        echo "$(t demo_data_creation_failed)"
+        read -p "$(t press_enter)" _
+        return 1
+    fi
     
     echo "$(t viewing_data)"
     docker exec -it wall-be-mysql mysql -u root -proot -e "SELECT * FROM wallbe_demo.demo_data;"
     
+    # Создание фактического бэкапа с использованием wall-be
     echo "$(t creating_backup)"
-    docker exec -it wall-be wall-be mysql backup --config /etc/wall-be/mysql.env
+    docker exec -it wall-be /opt/wall-be/wall-be.sh mysql backup --config /etc/wall-be/mysql.env
+    
+    if [ $? -ne 0 ]; then
+        echo "$(t backup_creation_failed)"
+        read -p "$(t press_enter)" _
+        return 1
+    fi
     
     echo "$(t listing_backups)"
-    docker exec -it wall-be wall-be mysql list --config /etc/wall-be/mysql.env
+    docker exec -it wall-be /opt/wall-be/wall-be.sh mysql list --config /etc/wall-be/mysql.env
     
     echo "$(t adding_data)"
     docker exec -it wall-be-mysql mysql -u root -proot -e "USE wallbe_demo; INSERT INTO demo_data (data) VALUES ('New data after backup');"
@@ -171,7 +252,13 @@ mysql_docker_demo() {
     read -p "$(t continue_restore) " confirm
     if [[ $confirm == [yY] ]]; then
         echo "$(t restoring_backup)"
-        docker exec -it wall-be wall-be mysql restore --name LATEST --config /etc/wall-be/mysql.env
+        docker exec -it wall-be /opt/wall-be/wall-be.sh mysql restore --config /etc/wall-be/mysql.env
+        
+        if [ $? -ne 0 ]; then
+            echo "$(t restore_failed)"
+            read -p "$(t press_enter)" _
+            return 1
+        fi
         
         echo "$(t viewing_restored_data)"
         docker exec -it wall-be-mysql mysql -u root -proot -e "SELECT * FROM wallbe_demo.demo_data;"
@@ -189,26 +276,57 @@ postgresql_docker_demo() {
     echo "========================================"
     echo ""
     
-    # Проверка на запущенный контейнер PostgreSQL
+    # Проверка и запуск контейнеров, если они не запущены
     if ! docker ps | grep -q wall-be-postgres; then
         echo "$(t postgres_container_not_running)"
-        echo "$(t start_containers_first)"
+        echo "$(t starting_containers_automatically)"
+        
+        # Запускаем контейнеры автоматически
+        if ! start_containers; then
+            echo "$(t container_start_failed)"
+            read -p "$(t press_enter)" _
+            return 1
+        fi
+        
+        # Даем дополнительное время для инициализации PostgreSQL
+        echo "$(t waiting_for_postgres_init)"
+        sleep 5
+    fi
+    
+    # Проверка готовности PostgreSQL к работе
+    echo "$(t checking_postgres_connection)"
+    if ! docker exec -it wall-be-postgres pg_isready -U postgres &>/dev/null; then
+        echo "$(t postgres_connection_failed)"
         read -p "$(t press_enter)" _
         return 1
     fi
     
+    # Создание тестовой базы и данных
     echo "$(t creating_test_table)"
-    docker exec -it wall-be-postgres psql -U postgres -c "CREATE DATABASE wallbe_demo;"
+    docker exec -it wall-be-postgres psql -U postgres -c "CREATE DATABASE wallbe_demo;" 2>/dev/null || true
     docker exec -it wall-be-postgres psql -U postgres -d wallbe_demo -c "CREATE TABLE IF NOT EXISTS demo_data (id SERIAL PRIMARY KEY, data VARCHAR(255), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP); INSERT INTO demo_data (data) VALUES ('PG Demo data 1'), ('PG Demo data 2');"
+    
+    if [ $? -ne 0 ]; then
+        echo "$(t demo_data_creation_failed)"
+        read -p "$(t press_enter)" _
+        return 1
+    fi
     
     echo "$(t viewing_data)"
     docker exec -it wall-be-postgres psql -U postgres -d wallbe_demo -c "SELECT * FROM demo_data;"
     
+    # Создание фактического бэкапа с использованием wall-be
     echo "$(t creating_backup)"
-    docker exec -it wall-be wall-be postgresql backup --config /etc/wall-be/postgres.env
+    docker exec -it wall-be /opt/wall-be/wall-be.sh postgresql backup --config /etc/wall-be/postgres.env
+    
+    if [ $? -ne 0 ]; then
+        echo "$(t backup_creation_failed)"
+        read -p "$(t press_enter)" _
+        return 1
+    fi
     
     echo "$(t listing_backups)"
-    docker exec -it wall-be wall-be postgresql list --config /etc/wall-be/postgres.env
+    docker exec -it wall-be /opt/wall-be/wall-be.sh postgresql list --config /etc/wall-be/postgres.env
     
     echo "$(t adding_data)"
     docker exec -it wall-be-postgres psql -U postgres -d wallbe_demo -c "INSERT INTO demo_data (data) VALUES ('New PG data after backup');"
@@ -220,7 +338,13 @@ postgresql_docker_demo() {
     read -p "$(t continue_restore) " confirm
     if [[ $confirm == [yY] ]]; then
         echo "$(t restoring_backup)"
-        docker exec -it wall-be wall-be postgresql restore --name LATEST --config /etc/wall-be/postgres.env
+        docker exec -it wall-be /opt/wall-be/wall-be.sh postgresql restore --config /etc/wall-be/postgres.env
+        
+        if [ $? -ne 0 ]; then
+            echo "$(t restore_failed)"
+            read -p "$(t press_enter)" _
+            return 1
+        fi
         
         echo "$(t viewing_restored_data)"
         docker exec -it wall-be-postgres psql -U postgres -d wallbe_demo -c "SELECT * FROM demo_data;"
@@ -246,7 +370,7 @@ main_menu() {
         echo "3. $(t schedule_demo)"
         echo "4. $(t retention_demo)"
         echo "5. $(t readme_demo)"
-        echo "6. $(t docker_demo_title)"
+        echo "6. $(t docker_management)"
         echo "7. $(t exit)"
         echo ""
 
@@ -294,10 +418,10 @@ main_menu() {
 docker_menu() {
     while true; do
         clear
-        echo -e "\e[1m$(t docker_demo_title)\e[0m"
+        echo -e "\e[1m$(t docker_management)\e[0m"
         echo "========================================"
         echo ""
-        echo "$(t select_demo)"
+        echo "$(t select_option)"
         echo ""
         echo "1. $(t starting_containers)"
         echo "2. $(t stopping_containers)"
