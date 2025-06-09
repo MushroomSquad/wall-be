@@ -213,6 +213,11 @@ docker_cleanup() {
     return 0
 }
 
+# Определим функцию для запуска команд Docker без интерактивного режима
+docker_exec() {
+    docker exec "$@"
+}
+
 # Функция для проверки наличия контейнеров MySQL
 check_mysql_containers() {
     if ! docker ps | grep -q wall-be-mysql; then
@@ -260,12 +265,12 @@ mysql_docker_demo() {
         
         # Даем дополнительное время для инициализации MySQL
         echo "$(t waiting_for_mysql_init)"
-        sleep 5
+        sleep 10
     fi
     
-    # Проверка готовности MySQL к работе
+    # Проверка готовности MySQL к работе - используем контейнер wall-be для проверки
     echo "$(t checking_mysql_connection)"
-    if ! docker exec -it wall-be-mysql mysqladmin -u root -proot ping &>/dev/null; then
+    if ! docker exec wall-be mysql -h wall-be-mysql -u root -proot -e "SELECT 1" &>/dev/null; then
         echo "$(t mysql_connection_failed)"
         read -p "$(t press_enter)" _
         return 1
@@ -273,7 +278,7 @@ mysql_docker_demo() {
     
     # Создание тестовой базы и данных
     echo "$(t creating_test_db)"
-    docker exec -it wall-be-mysql mysql -u root -proot -e "CREATE DATABASE IF NOT EXISTS wallbe_demo; USE wallbe_demo; CREATE TABLE IF NOT EXISTS demo_data (id INT AUTO_INCREMENT PRIMARY KEY, data VARCHAR(255), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP); INSERT INTO demo_data (data) VALUES ('Demo data 1'), ('Demo data 2');"
+    docker exec wall-be mysql -h wall-be-mysql -u root -proot -e "CREATE DATABASE IF NOT EXISTS wallbe_demo; USE wallbe_demo; CREATE TABLE IF NOT EXISTS demo_data (id INT AUTO_INCREMENT PRIMARY KEY, data VARCHAR(255), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP); INSERT INTO demo_data (data) VALUES ('Demo data 1'), ('Demo data 2');"
     
     if [ $? -ne 0 ]; then
         echo "$(t demo_data_creation_failed)"
@@ -282,11 +287,11 @@ mysql_docker_demo() {
     fi
     
     echo "$(t viewing_data)"
-    docker exec -it wall-be-mysql mysql -u root -proot -e "SELECT * FROM wallbe_demo.demo_data;"
+    docker exec wall-be mysql -h wall-be-mysql -u root -proot -e "SELECT * FROM wallbe_demo.demo_data;"
     
     # Создание фактического бэкапа с использованием wall-be
     echo "$(t creating_backup)"
-    docker exec -it wall-be /opt/wall-be/wall-be.sh mysql backup --config /etc/wall-be/mysql.env
+    docker exec wall-be /opt/wall-be/wall-be.sh mysql backup --config /etc/wall-be/mysql.env
     
     if [ $? -ne 0 ]; then
         echo "$(t backup_creation_failed)"
@@ -295,19 +300,19 @@ mysql_docker_demo() {
     fi
     
     echo "$(t listing_backups)"
-    docker exec -it wall-be /opt/wall-be/wall-be.sh mysql list --config /etc/wall-be/mysql.env
+    docker exec wall-be /opt/wall-be/wall-be.sh mysql list --config /etc/wall-be/mysql.env
     
     echo "$(t adding_data)"
-    docker exec -it wall-be-mysql mysql -u root -proot -e "USE wallbe_demo; INSERT INTO demo_data (data) VALUES ('New data after backup');"
+    docker exec wall-be mysql -h wall-be-mysql -u root -proot -e "USE wallbe_demo; INSERT INTO demo_data (data) VALUES ('New data after backup');"
     
     echo "$(t viewing_updated_data)"
-    docker exec -it wall-be-mysql mysql -u root -proot -e "SELECT * FROM wallbe_demo.demo_data;"
+    docker exec wall-be mysql -h wall-be-mysql -u root -proot -e "SELECT * FROM wallbe_demo.demo_data;"
     
     echo "$(t restore_warning)"
     read -p "$(t continue_restore) " confirm
     if [[ $confirm == [yY] ]]; then
         echo "$(t restoring_backup)"
-        docker exec -it wall-be /opt/wall-be/wall-be.sh mysql restore --config /etc/wall-be/mysql.env
+        docker exec wall-be /opt/wall-be/wall-be.sh mysql restore --config /etc/wall-be/mysql.env
         
         if [ $? -ne 0 ]; then
             echo "$(t restore_failed)"
@@ -316,7 +321,7 @@ mysql_docker_demo() {
         fi
         
         echo "$(t viewing_restored_data)"
-        docker exec -it wall-be-mysql mysql -u root -proot -e "SELECT * FROM wallbe_demo.demo_data;"
+        docker exec wall-be mysql -h wall-be-mysql -u root -proot -e "SELECT * FROM wallbe_demo.demo_data;"
     fi
     
     echo "$(t mysql_demo_complete)"
@@ -345,12 +350,12 @@ postgresql_docker_demo() {
         
         # Даем дополнительное время для инициализации PostgreSQL
         echo "$(t waiting_for_postgres_init)"
-        sleep 5
+        sleep 10
     fi
     
-    # Проверка готовности PostgreSQL к работе
+    # Проверка готовности PostgreSQL к работе - используем контейнер wall-be для проверки
     echo "$(t checking_postgres_connection)"
-    if ! docker exec -it wall-be-postgres pg_isready -U postgres &>/dev/null; then
+    if ! docker exec wall-be bash -c "PGPASSWORD=postgres psql -h wall-be-postgres -U postgres -c 'SELECT 1'" &>/dev/null; then
         echo "$(t postgres_connection_failed)"
         read -p "$(t press_enter)" _
         return 1
@@ -358,8 +363,8 @@ postgresql_docker_demo() {
     
     # Создание тестовой базы и данных
     echo "$(t creating_test_table)"
-    docker exec -it wall-be-postgres psql -U postgres -c "CREATE DATABASE wallbe_demo;" 2>/dev/null || true
-    docker exec -it wall-be-postgres psql -U postgres -d wallbe_demo -c "CREATE TABLE IF NOT EXISTS demo_data (id SERIAL PRIMARY KEY, data VARCHAR(255), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP); INSERT INTO demo_data (data) VALUES ('PG Demo data 1'), ('PG Demo data 2');"
+    docker exec wall-be bash -c "PGPASSWORD=postgres psql -h wall-be-postgres -U postgres -c 'CREATE DATABASE wallbe_demo;'" 2>/dev/null || true
+    docker exec wall-be bash -c "PGPASSWORD=postgres psql -h wall-be-postgres -U postgres -d wallbe_demo -c 'CREATE TABLE IF NOT EXISTS demo_data (id SERIAL PRIMARY KEY, data VARCHAR(255), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP); INSERT INTO demo_data (data) VALUES (''PG Demo data 1''), (''PG Demo data 2'');'"
     
     if [ $? -ne 0 ]; then
         echo "$(t demo_data_creation_failed)"
@@ -368,11 +373,11 @@ postgresql_docker_demo() {
     fi
     
     echo "$(t viewing_data)"
-    docker exec -it wall-be-postgres psql -U postgres -d wallbe_demo -c "SELECT * FROM demo_data;"
+    docker exec wall-be bash -c "PGPASSWORD=postgres psql -h wall-be-postgres -U postgres -d wallbe_demo -c 'SELECT * FROM demo_data;'"
     
     # Создание фактического бэкапа с использованием wall-be
     echo "$(t creating_backup)"
-    docker exec -it wall-be /opt/wall-be/wall-be.sh postgresql backup --config /etc/wall-be/postgres.env
+    docker exec wall-be /opt/wall-be/wall-be.sh postgresql backup --config /etc/wall-be/postgres.env
     
     if [ $? -ne 0 ]; then
         echo "$(t backup_creation_failed)"
@@ -381,19 +386,19 @@ postgresql_docker_demo() {
     fi
     
     echo "$(t listing_backups)"
-    docker exec -it wall-be /opt/wall-be/wall-be.sh postgresql list --config /etc/wall-be/postgres.env
+    docker exec wall-be /opt/wall-be/wall-be.sh postgresql list --config /etc/wall-be/postgres.env
     
     echo "$(t adding_data)"
-    docker exec -it wall-be-postgres psql -U postgres -d wallbe_demo -c "INSERT INTO demo_data (data) VALUES ('New PG data after backup');"
+    docker exec wall-be bash -c "PGPASSWORD=postgres psql -h wall-be-postgres -U postgres -d wallbe_demo -c 'INSERT INTO demo_data (data) VALUES (''New PG data after backup'');'"
     
     echo "$(t viewing_updated_data)"
-    docker exec -it wall-be-postgres psql -U postgres -d wallbe_demo -c "SELECT * FROM demo_data;"
+    docker exec wall-be bash -c "PGPASSWORD=postgres psql -h wall-be-postgres -U postgres -d wallbe_demo -c 'SELECT * FROM demo_data;'"
     
     echo "$(t restore_warning)"
     read -p "$(t continue_restore) " confirm
     if [[ $confirm == [yY] ]]; then
         echo "$(t restoring_backup)"
-        docker exec -it wall-be /opt/wall-be/wall-be.sh postgresql restore --config /etc/wall-be/postgres.env
+        docker exec wall-be /opt/wall-be/wall-be.sh postgresql restore --config /etc/wall-be/postgres.env
         
         if [ $? -ne 0 ]; then
             echo "$(t restore_failed)"
@@ -402,7 +407,7 @@ postgresql_docker_demo() {
         fi
         
         echo "$(t viewing_restored_data)"
-        docker exec -it wall-be-postgres psql -U postgres -d wallbe_demo -c "SELECT * FROM demo_data;"
+        docker exec wall-be bash -c "PGPASSWORD=postgres psql -h wall-be-postgres -U postgres -d wallbe_demo -c 'SELECT * FROM demo_data;'"
     fi
     
     echo "$(t pg_demo_complete)"

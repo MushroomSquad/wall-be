@@ -48,12 +48,20 @@ services:
       ln -sf /opt/wall-be/wall-be.sh /usr/local/bin/wall-be &&
       mkdir -p /backup/mysql /backup/postgresql &&
       echo '#!/bin/bash' > /usr/local/bin/wal-g-mysql &&
-      echo 'mysqldump --host=\"\$WALG_MYSQL_HOST\" --user=\"\$WALG_MYSQL_USER\" --password=\"\$WALG_MYSQL_PASSWORD\" --all-databases --single-transaction > \"\$WALG_FILE_PREFIX/mysql_backup_\$(date +%Y%m%d_%H%M%S).sql\"' >> /usr/local/bin/wal-g-mysql &&
-      echo 'gzip -f \"\$WALG_FILE_PREFIX/mysql_backup_\$(date +%Y%m%d_%H%M%S).sql\"' >> /usr/local/bin/wal-g-mysql &&
+      echo 'source /etc/wall-be/mysql.env' >> /usr/local/bin/wal-g-mysql &&
+      echo 'BACKUP_TIME=\$(date +%Y%m%d_%H%M%S)' >> /usr/local/bin/wal-g-mysql &&
+      echo 'BACKUP_FILE=\"\$WALG_FILE_PREFIX/mysql_backup_\$BACKUP_TIME.sql\"' >> /usr/local/bin/wal-g-mysql &&
+      echo 'mysqldump --host=\"\$WALG_MYSQL_HOST\" --user=\"\$WALG_MYSQL_USER\" --password=\"\$WALG_MYSQL_PASSWORD\" --port=\$WALG_MYSQL_PORT --all-databases --single-transaction > \"\$BACKUP_FILE\"' >> /usr/local/bin/wal-g-mysql &&
+      echo 'gzip -f \"\$BACKUP_FILE\"' >> /usr/local/bin/wal-g-mysql &&
+      echo 'echo \"Backup created: \$BACKUP_FILE.gz\"' >> /usr/local/bin/wal-g-mysql &&
       chmod +x /usr/local/bin/wal-g-mysql &&
       echo '#!/bin/bash' > /usr/local/bin/wal-g-pg &&
-      echo 'PGPASSWORD=\"\$PGPASSWORD\" pg_dump -h \"\$PGHOST\" -U \"\$PGUSER\" -d \"\$PGDATABASE\" > \"\$WALG_FILE_PREFIX/pg_backup_\$(date +%Y%m%d_%H%M%S).sql\"' >> /usr/local/bin/wal-g-pg &&
-      echo 'gzip -f \"\$WALG_FILE_PREFIX/pg_backup_\$(date +%Y%m%d_%H%M%S).sql\"' >> /usr/local/bin/wal-g-pg &&
+      echo 'source /etc/wall-be/postgres.env' >> /usr/local/bin/wal-g-pg &&
+      echo 'BACKUP_TIME=\$(date +%Y%m%d_%H%M%S)' >> /usr/local/bin/wal-g-pg &&
+      echo 'BACKUP_FILE=\"\$WALG_FILE_PREFIX/pg_backup_\$BACKUP_TIME.sql\"' >> /usr/local/bin/wal-g-pg &&
+      echo 'PGPASSWORD=\"\$PGPASSWORD\" pg_dump -h \"\$PGHOST\" -U \"\$PGUSER\" -p \$PGPORT -d \"\$PGDATABASE\" > \"\$BACKUP_FILE\"' >> /usr/local/bin/wal-g-pg &&
+      echo 'gzip -f \"\$BACKUP_FILE\"' >> /usr/local/bin/wal-g-pg &&
+      echo 'echo \"Backup created: \$BACKUP_FILE.gz\"' >> /usr/local/bin/wal-g-pg &&
       chmod +x /usr/local/bin/wal-g-pg &&
       sleep infinity"
     profiles: ["mysql", "postgresql", "all"]
