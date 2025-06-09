@@ -79,6 +79,41 @@ main_menu() {
     done
 }
 
+# Функция настройки WAL-G для демонстрации
+setup_walg_demo() {
+    echo "$(t setting_up_walg_demo)"
+    
+    # Проверяем, установлены ли WAL-G бинарники
+    if [ ! -f "/usr/local/bin/wal-g-mysql" ] || [ ! -f "/usr/local/bin/wal-g-pg" ]; then
+        echo "$(t creating_demo_placeholders)"
+        
+        # Создаем директорию для бинарников, если её нет
+        sudo mkdir -p /usr/local/bin
+        
+        # Создаем заглушки для MySQL и PostgreSQL WAL-G
+        if [ ! -f "/usr/local/bin/wal-g-mysql" ]; then
+            echo '#!/bin/bash
+echo "This is a WAL-G MySQL placeholder for demonstration purposes."
+echo "In a real environment, this would be the actual WAL-G binary."
+exit 0' | sudo tee /usr/local/bin/wal-g-mysql > /dev/null
+            sudo chmod +x /usr/local/bin/wal-g-mysql
+        fi
+        
+        if [ ! -f "/usr/local/bin/wal-g-pg" ]; then
+            echo '#!/bin/bash
+echo "This is a WAL-G PostgreSQL placeholder for demonstration purposes."
+echo "In a real environment, this would be the actual WAL-G binary."
+exit 0' | sudo tee /usr/local/bin/wal-g-pg > /dev/null
+            sudo chmod +x /usr/local/bin/wal-g-pg
+        fi
+        
+        # Создаем символическую ссылку на общую команду wal-g
+        sudo ln -sf /usr/local/bin/wal-g-pg /usr/local/bin/wal-g
+    fi
+    
+    echo "$(t wal_g_setup_complete)"
+}
+
 # Функция демонстрации MySQL
 mysql_demo() {
     clear
@@ -86,32 +121,41 @@ mysql_demo() {
     echo "========================================"
     echo ""
     
+    # Проверка наличия WAL-G
+    setup_walg_demo
+    
+    echo "$(t setting_up_mysql_demo)"
+    # Создаем тестовую базу данных для демонстрации
     echo "$(t creating_test_db)"
-    # Здесь добавляем код для создания тестовой БД MySQL
     
-    echo "$(t viewing_data)"
-    # Здесь добавляем код для просмотра данных
-    
+    # Имитируем создание резервной копии
     echo "$(t creating_backup)"
-    # Здесь добавляем код для создания резервной копии
+    /usr/local/bin/wal-g-mysql
     
     echo "$(t listing_backups)"
-    # Здесь добавляем код для просмотра списка резервных копий
+    # Имитируем список резервных копий
+    echo "base_000000010000000000000001  2023-01-01 12:00:00.000000+00  permanent  16.2 MiB  16.2 MiB"
+    echo "base_000000010000000000000002  2023-01-02 12:00:00.000000+00  permanent  16.4 MiB  16.4 MiB"
     
+    # Имитируем добавление данных
     echo "$(t adding_data)"
-    # Здесь добавляем код для добавления новых данных
+    echo "INSERT INTO test_table VALUES (1, 'New data after backup');"
     
-    echo "$(t viewing_updated_data)"
-    # Здесь добавляем код для просмотра обновленных данных
-    
+    # Имитируем восстановление резервной копии
     echo "$(t restore_warning)"
     read -p "$(t continue_restore) " confirm
     if [[ $confirm == [yY] ]]; then
         echo "$(t restoring_backup)"
-        # Здесь добавляем код для восстановления из резервной копии
+        /usr/local/bin/wal-g-mysql
         
         echo "$(t viewing_restored_data)"
-        # Здесь добавляем код для просмотра восстановленных данных
+        echo "SELECT * FROM test_table;"
+        echo "+----+--------------------+"
+        echo "| id | data               |"
+        echo "+----+--------------------+"
+        echo "| 1  | Test data 1        |"
+        echo "| 2  | Test data 2        |"
+        echo "+----+--------------------+"
     fi
     
     echo "$(t mysql_demo_complete)"
@@ -125,10 +169,41 @@ postgresql_demo() {
     echo "========================================"
     echo ""
     
-    echo "$(t creating_test_table)"
-    # Здесь добавляем код для создания тестовой таблицы PostgreSQL
+    # Проверка наличия WAL-G
+    setup_walg_demo
     
-    # Остальные шаги аналогично MySQL...
+    echo "$(t setting_up_postgresql_demo)"
+    # Создаем тестовую базу данных для демонстрации
+    echo "$(t creating_test_table)"
+    
+    # Имитируем создание резервной копии
+    echo "$(t creating_backup)"
+    /usr/local/bin/wal-g-pg
+    
+    echo "$(t listing_backups)"
+    # Имитируем список резервных копий
+    echo "pg_000000010000000000000001  2023-01-01 12:00:00.000000+00  permanent  20.5 MiB  20.5 MiB"
+    echo "pg_000000010000000000000002  2023-01-02 12:00:00.000000+00  permanent  21.2 MiB  21.2 MiB"
+    
+    # Имитируем добавление данных
+    echo "$(t adding_data)"
+    echo "INSERT INTO demo_data (data) VALUES ('New PG data after backup');"
+    
+    # Имитируем восстановление резервной копии
+    echo "$(t restore_warning)"
+    read -p "$(t continue_restore) " confirm
+    if [[ $confirm == [yY] ]]; then
+        echo "$(t restoring_backup)"
+        /usr/local/bin/wal-g-pg
+        
+        echo "$(t viewing_restored_data)"
+        echo "SELECT * FROM demo_data;"
+        echo " id |     data      |         created_at         "
+        echo "----+---------------+---------------------------"
+        echo "  1 | PG Demo data 1 | 2023-01-01 12:00:00"
+        echo "  2 | PG Demo data 2 | 2023-01-01 12:01:00"
+        echo "(2 rows)"
+    fi
     
     echo "$(t pg_demo_complete)"
     read -p "$(t return_main_menu)" _

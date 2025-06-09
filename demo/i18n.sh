@@ -224,6 +224,10 @@ TRANSLATIONS_EN=(
     ["available_demos"]="Available demonstrations"
     ["notes"]="Notes"
     ["troubleshooting"]="Troubleshooting"
+    
+    # Добавляем новые переводы для WAL-G в демо-режиме
+    ["creating_demo_placeholders"]="Creating WAL-G placeholder scripts for demonstration..."
+    ["wal_g_setup_complete"]="WAL-G setup for demonstration completed."
 )
 
 # Переводы на русском
@@ -411,4 +415,33 @@ TRANSLATIONS_RU=(
     ["available_demos"]="Доступные демонстрации"
     ["notes"]="Примечания"
     ["troubleshooting"]="Устранение неполадок"
-) 
+    
+    # Добавляем новые переводы для WAL-G в демо-режиме
+    ["creating_demo_placeholders"]="Создание заглушек WAL-G для демонстрации..."
+    ["wal_g_setup_complete"]="Настройка WAL-G для демонстрации завершена."
+)
+
+# Проверка наличия строк и добавление недостающих
+if [ -z "${TRANSLATIONS_EN["setting_up_walg_demo"]}" ]; then
+    TRANSLATIONS_EN["setting_up_walg_demo"]="Setting up WAL-G for demonstration..."
+fi
+
+if [ -z "${TRANSLATIONS_EN["setting_up_mysql_demo"]}" ]; then
+    TRANSLATIONS_EN["setting_up_mysql_demo"]="Setting up MySQL for demonstration..."
+fi
+
+if [ -z "${TRANSLATIONS_EN["setting_up_postgresql_demo"]}" ]; then
+    TRANSLATIONS_EN["setting_up_postgresql_demo"]="Setting up PostgreSQL for demonstration..."
+fi
+
+if [ -z "${TRANSLATIONS_RU["setting_up_walg_demo"]}" ]; then
+    TRANSLATIONS_RU["setting_up_walg_demo"]="Настройка WAL-G для демонстрации..."
+fi
+
+if [ -z "${TRANSLATIONS_RU["setting_up_mysql_demo"]}" ]; then
+    TRANSLATIONS_RU["setting_up_mysql_demo"]="Настройка MySQL для демонстрации..."
+fi
+
+if [ -z "${TRANSLATIONS_RU["setting_up_postgresql_demo"]}" ]; then
+    TRANSLATIONS_RU["setting_up_postgresql_demo"]="Настройка PostgreSQL для демонстрации..."
+fi 
