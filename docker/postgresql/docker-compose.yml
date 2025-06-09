@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  postgresql:
+    build:
+      context: .
+    image: wall-be-postgresql:latest
+    container_name: wall-be-postgresql
+    environment:
+      # PostgreSQL конфигурация
+      POSTGRES_PASSWORD: mysecretpassword
+      POSTGRES_USER: postgres
+      POSTGRES_DB: postgres
+      
+      # WAL-G конфигурация
+      # Раскомментируйте и настройте одно из следующих хранилищ:
+      
+      # S3 хранилище
+      # WALG_S3_PREFIX: s3://my-bucket/postgresql-backups
+      # AWS_ACCESS_KEY_ID: your-access-key
+      # AWS_SECRET_ACCESS_KEY: your-secret-key
+      # AWS_REGION: us-east-1
+      
+      # GCS хранилище
+      # WALG_GS_PREFIX: gs://my-bucket/postgresql-backups
+      # GOOGLE_APPLICATION_CREDENTIALS: /path/to/credentials.json
+      
+      # Azure хранилище
+      # WALG_AZ_PREFIX: azure://my-container/postgresql-backups
+      # AZURE_STORAGE_ACCOUNT: your-account
+      # AZURE_STORAGE_KEY: your-key
+      
+      # Локальное хранилище (используйте volume)
+      WALG_FILE_PREFIX: /backups
+      
+      # Параметры резервного копирования
+      WALG_COMPRESSION_METHOD: lz4
+      WALG_DELTA_MAX_STEPS: 7
+      
+      # Расписание резервного копирования (cron формат)
+      BACKUP_SCHEDULE: "0 0 * * *"
+      
+      # Если нужно восстановить при запуске (LATEST или конкретное имя бэкапа)
+      # RESTORE_FROM_BACKUP: LATEST
+      
+      # Уведомления
+      # BACKUP_ALERT_EMAIL: admin@example.com
+      # BACKUP_SLACK_WEBHOOK: https://hooks.slack.com/services/xxx/yyy/zzz
+      # BACKUP_ALERT_ON_SUCCESS: "true"
+      # BACKUP_ALERT_ON_ERROR: "true"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgresql_data:/var/lib/postgresql/data
+      - postgresql_backups:/backups
+    restart: unless-stopped
+
+volumes:
+  postgresql_data:
+  postgresql_backups: 

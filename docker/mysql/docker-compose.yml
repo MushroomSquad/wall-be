@@ -1,0 +1,61 @@
+version: '3.8'
+
+services:
+  mysql:
+    build:
+      context: .
+    image: wall-be-mysql:latest
+    container_name: wall-be-mysql
+    environment:
+      # MySQL конфигурация
+      MYSQL_ROOT_PASSWORD: mysecretpassword
+      MYSQL_DATABASE: mydb
+      MYSQL_USER: user
+      MYSQL_PASSWORD: password
+      
+      # WAL-G конфигурация
+      # Раскомментируйте и настройте одно из следующих хранилищ:
+      
+      # S3 хранилище
+      # WALG_S3_PREFIX: s3://my-bucket/mysql-backups
+      # AWS_ACCESS_KEY_ID: your-access-key
+      # AWS_SECRET_ACCESS_KEY: your-secret-key
+      # AWS_REGION: us-east-1
+      
+      # GCS хранилище
+      # WALG_GS_PREFIX: gs://my-bucket/mysql-backups
+      # GOOGLE_APPLICATION_CREDENTIALS: /path/to/credentials.json
+      
+      # Azure хранилище
+      # WALG_AZ_PREFIX: azure://my-container/mysql-backups
+      # AZURE_STORAGE_ACCOUNT: your-account
+      # AZURE_STORAGE_KEY: your-key
+      
+      # Локальное хранилище (используйте volume)
+      WALG_FILE_PREFIX: /backups
+      
+      # Параметры резервного копирования
+      WALG_COMPRESSION_METHOD: lz4
+      WALG_DELTA_MAX_STEPS: 7
+      
+      # Расписание резервного копирования (cron формат)
+      BACKUP_SCHEDULE: "0 0 * * *"
+      
+      # Если нужно восстановить при запуске (LATEST или конкретное имя бэкапа)
+      # RESTORE_FROM_BACKUP: LATEST
+      
+      # Уведомления
+      # BACKUP_ALERT_EMAIL: admin@example.com
+      # BACKUP_SLACK_WEBHOOK: https://hooks.slack.com/services/xxx/yyy/zzz
+      # BACKUP_ALERT_ON_SUCCESS: "true"
+      # BACKUP_ALERT_ON_ERROR: "true"
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - mysql_backups:/backups
+    restart: unless-stopped
+
+volumes:
+  mysql_data:
+  mysql_backups: 
