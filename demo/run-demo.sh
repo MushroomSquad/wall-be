@@ -22,6 +22,36 @@ RESET='\033[0m'
 # Переменные конфигурации
 DEMO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Функция для проверки наличия пользователя в группе docker
+check_docker_group() {
+    if command -v docker &> /dev/null; then
+        if ! groups | grep -q "\bdocker\b"; then
+            echo -e "${RED}$(t docker_permission_denied)${RESET}"
+            echo "$(t docker_group_instructions)"
+            echo "sudo usermod -aG docker $USER"
+            echo ""
+            read -p "$(t apply_docker_group_now) (y/n)? " choice
+            if [[ "$choice" == [yY] ]]; then
+                echo "$(t executing_newgrp)"
+                exec newgrp docker
+            else
+                return 1
+            fi
+        fi
+    fi
+    return 0
+}
+
+# Функция для запуска Docker демо с проверкой
+run_docker_demo() {
+    if ! check_docker_group; then
+        read -p "$(t press_enter)" _
+        show_menu
+        return
+    fi
+    "$DEMO_DIR/docker-demo.sh"
+}
+
 # Функция для отображения заголовка
 show_header() {
     clear
@@ -97,7 +127,7 @@ show_menu() {
             "$DEMO_DIR/demo.sh"
             ;;
         2)
-            "$DEMO_DIR/docker-demo.sh"
+            run_docker_demo
             ;;
         3)
             "$DEMO_DIR/autotest.sh"
@@ -135,7 +165,7 @@ if [ "$#" -gt 0 ]; then
             "$DEMO_DIR/demo.sh"
             ;;
         --docker)
-            "$DEMO_DIR/docker-demo.sh"
+            run_docker_demo
             ;;
         --autotest)
             "$DEMO_DIR/autotest.sh"

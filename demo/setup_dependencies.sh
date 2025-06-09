@@ -206,6 +206,8 @@ install_docker() {
         apt-get update
         apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
         usermod -aG docker $SUDO_USER
+        echo -e "${YELLOW}$(t docker_group_added)${RESET}"
+        echo "$(t docker_logout_reminder)"
     elif [[ "$DISTRO" == "fedora" ]]; then
         dnf -y install dnf-plugins-core
         dnf config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo
@@ -213,6 +215,8 @@ install_docker() {
         systemctl enable docker
         systemctl start docker
         usermod -aG docker $SUDO_USER
+        echo -e "${YELLOW}$(t docker_group_added)${RESET}"
+        echo "$(t docker_logout_reminder)"
     elif [[ "$DISTRO" == "rhel" || "$DISTRO" == "centos" ]]; then
         yum install -y yum-utils
         yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
@@ -220,11 +224,15 @@ install_docker() {
         systemctl enable docker
         systemctl start docker
         usermod -aG docker $SUDO_USER
+        echo -e "${YELLOW}$(t docker_group_added)${RESET}"
+        echo "$(t docker_logout_reminder)"
     elif [[ "$DISTRO" == "arch" || "$DISTRO" == "manjaro" ]]; then
         pacman -Sy --noconfirm docker docker-compose
         systemctl enable docker
         systemctl start docker
         usermod -aG docker $SUDO_USER
+        echo -e "${YELLOW}$(t docker_group_added)${RESET}"
+        echo "$(t docker_logout_reminder)"
     else
         echo -e "${RED}$(t unsupported_distro)${RESET}"
         return 1

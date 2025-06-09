@@ -14,6 +14,25 @@ cleanup() {
     exit 0
 }
 
+# Функция для проверки наличия пользователя в группе docker
+check_docker_group() {
+    if ! groups | grep -q "\bdocker\b"; then
+        echo "$(t docker_permission_denied)"
+        echo "$(t docker_group_instructions)"
+        echo "sudo usermod -aG docker $USER"
+        echo ""
+        read -p "$(t apply_docker_group_now) (y/n)? " choice
+        if [[ "$choice" == [yY] ]]; then
+            echo "$(t executing_newgrp)"
+            exec newgrp docker
+        else
+            read -p "$(t press_enter)" _
+            return 1
+        fi
+    fi
+    return 0
+}
+
 # Функция для запуска Docker-контейнеров
 start_containers() {
     clear
@@ -26,6 +45,11 @@ start_containers() {
         echo "$(t docker_not_installed)"
         echo "$(t docker_install_required)"
         read -p "$(t press_enter)" _
+        return 1
+    fi
+
+    # Проверка на наличие пользователя в группе docker
+    if ! check_docker_group; then
         return 1
     fi
 
