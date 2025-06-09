@@ -124,41 +124,99 @@ mysql_demo() {
     # Проверка наличия WAL-G
     setup_walg_demo
     
-    echo "$(t setting_up_mysql_demo)"
+    echo -e "\e[33m$(t setting_up_mysql_demo)\e[0m"
     # Создаем тестовую базу данных для демонстрации
-    echo "$(t creating_test_db)"
+    echo -e "\e[36m> $(t creating_test_db)\e[0m"
+    echo -e "  $(t demo_creating_db_tables)"
+    echo "  CREATE DATABASE wallbe_demo;"
+    echo "  USE wallbe_demo;"
+    echo "  CREATE TABLE test_table (id INT AUTO_INCREMENT PRIMARY KEY, data VARCHAR(255));"
+    echo "  INSERT INTO test_table (data) VALUES ('Test data 1'), ('Test data 2');"
+    echo ""
+    sleep 1
+    
+    echo -e "\e[36m> $(t viewing_initial_data)\e[0m"
+    echo "  SELECT * FROM test_table;"
+    echo "  +----+-------------+"
+    echo "  | id | data        |"
+    echo "  +----+-------------+"
+    echo "  | 1  | Test data 1 |"
+    echo "  | 2  | Test data 2 |"
+    echo "  +----+-------------+"
+    echo "  2 rows in set (0.00 sec)"
+    echo ""
+    sleep 1
     
     # Имитируем создание резервной копии
-    echo "$(t creating_backup)"
-    /usr/local/bin/wal-g-mysql
+    echo -e "\e[33m$(t creating_mysql_backup)\e[0m"
+    echo -e "  $(t demo_executing_command) \e[32mwal-g-mysql backup-push\e[0m"
+    echo ""
+    echo "  $(t demo_backup_process_started)"
+    echo "  $(t demo_backup_compressing_data)"
+    echo "  $(t demo_backup_uploading_to_storage)"
+    echo "  $(t demo_backup_completed)"
+    echo ""
+    sleep 1
     
-    echo "$(t listing_backups)"
-    # Имитируем список резервных копий
-    echo "base_000000010000000000000001  2023-01-01 12:00:00.000000+00  permanent  16.2 MiB  16.2 MiB"
-    echo "base_000000010000000000000002  2023-01-02 12:00:00.000000+00  permanent  16.4 MiB  16.4 MiB"
+    echo -e "\e[36m> $(t listing_backups)\e[0m"
+    echo "  $(t demo_executing_command) \e[32mwal-g-mysql backup-list\e[0m"
+    echo ""
+    echo "  name                          last_modified             wal_segment_backup_start         size       storage_size"
+    echo "  ------------------------------------------------------------------------------------------------------"
+    echo "  mysql_base_$(date +%Y%m%d)_1  $(date "+%Y-%m-%d %H:%M:%S").000000+00  permanent  16.2 MiB  16.2 MiB"
+    echo "  mysql_base_$(date +%Y%m%d)_2  $(date -d '1 hour ago' "+%Y-%m-%d %H:%M:%S").000000+00  permanent  16.4 MiB  16.4 MiB"
+    echo ""
+    sleep 1
     
     # Имитируем добавление данных
-    echo "$(t adding_data)"
-    echo "INSERT INTO test_table VALUES (1, 'New data after backup');"
+    echo -e "\e[36m> $(t adding_data)\e[0m"
+    echo "  INSERT INTO test_table (data) VALUES ('New data after backup');"
+    echo "  Query OK, 1 row affected (0.00 sec)"
+    echo ""
+    echo "  SELECT * FROM test_table;"
+    echo "  +----+----------------------+"
+    echo "  | id | data                 |"
+    echo "  +----+----------------------+"
+    echo "  | 1  | Test data 1          |"
+    echo "  | 2  | Test data 2          |"
+    echo "  | 3  | New data after backup|"
+    echo "  +----+----------------------+"
+    echo "  3 rows in set (0.00 sec)"
+    echo ""
+    sleep 1
     
     # Имитируем восстановление резервной копии
-    echo "$(t restore_warning)"
-    read -p "$(t continue_restore) " confirm
+    echo -e "\e[33m$(t restore_warning)\e[0m"
+    read -p "$(t continue_mysql_restore) " confirm
     if [[ $confirm == [yY] ]]; then
-        echo "$(t restoring_backup)"
-        /usr/local/bin/wal-g-mysql
+        echo -e "\e[33m$(t restoring_mysql_backup)\e[0m"
+        echo -e "  $(t demo_executing_command) \e[32mwal-g-mysql backup-fetch LATEST\e[0m"
+        echo ""
+        echo "  $(t demo_restore_process_started)"
+        echo "  $(t demo_restore_downloading_backup)"
+        echo "  $(t demo_restore_extracting_data)"
+        echo "  $(t demo_restore_applying_to_mysql)"
+        echo "  $(t demo_restore_completed)"
+        echo ""
+        sleep 1
         
-        echo "$(t viewing_restored_data)"
-        echo "SELECT * FROM test_table;"
-        echo "+----+--------------------+"
-        echo "| id | data               |"
-        echo "+----+--------------------+"
-        echo "| 1  | Test data 1        |"
-        echo "| 2  | Test data 2        |"
-        echo "+----+--------------------+"
+        echo -e "\e[36m> $(t viewing_restored_data)\e[0m"
+        echo "  SELECT * FROM test_table;"
+        echo "  +----+-------------+"
+        echo "  | id | data        |"
+        echo "  +----+-------------+"
+        echo "  | 1  | Test data 1 |"
+        echo "  | 2  | Test data 2 |"
+        echo "  +----+-------------+"
+        echo "  2 rows in set (0.00 sec)"
+        echo ""
+        sleep 1
+        
+        echo -e "  $(t demo_restore_note)"
+        echo ""
     fi
     
-    echo "$(t mysql_demo_complete)"
+    echo -e "\e[32m$(t mysql_demo_complete)\e[0m"
     read -p "$(t return_main_menu)" _
 }
 
@@ -172,40 +230,96 @@ postgresql_demo() {
     # Проверка наличия WAL-G
     setup_walg_demo
     
-    echo "$(t setting_up_postgresql_demo)"
+    echo -e "\e[33m$(t setting_up_postgresql_demo)\e[0m"
     # Создаем тестовую базу данных для демонстрации
-    echo "$(t creating_test_table)"
+    echo -e "\e[36m> $(t creating_test_table)\e[0m"
+    echo -e "  $(t demo_creating_pg_db_tables)"
+    echo "  CREATE DATABASE wallbe_demo;"
+    echo "  \\c wallbe_demo"
+    echo "  CREATE TABLE demo_data (id SERIAL PRIMARY KEY, data VARCHAR(255), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);"
+    echo "  INSERT INTO demo_data (data) VALUES ('PG Demo data 1'), ('PG Demo data 2');"
+    echo ""
+    sleep 1
+    
+    echo -e "\e[36m> $(t viewing_initial_data)\e[0m"
+    echo "  SELECT * FROM demo_data;"
+    echo "   id |     data      |         created_at         "
+    echo "  ----+---------------+---------------------------"
+    echo "    1 | PG Demo data 1 | $(date -d '1 hour ago' "+%Y-%m-%d %H:%M:%S")"
+    echo "    2 | PG Demo data 2 | $(date -d '59 min ago' "+%Y-%m-%d %H:%M:%S")"
+    echo "  (2 rows)"
+    echo ""
+    sleep 1
     
     # Имитируем создание резервной копии
-    echo "$(t creating_backup)"
-    /usr/local/bin/wal-g-pg
+    echo -e "\e[33m$(t creating_pg_backup)\e[0m"
+    echo -e "  $(t demo_executing_command) \e[32mwal-g-pg backup-push\e[0m"
+    echo ""
+    echo "  $(t demo_pg_backup_process_started)"
+    echo "  $(t demo_pg_backup_starting_backup_mode)"
+    echo "  $(t demo_pg_backup_creating_snapshot)"
+    echo "  $(t demo_pg_backup_compressing_data)"
+    echo "  $(t demo_pg_backup_uploading_to_storage)"
+    echo "  $(t demo_pg_backup_completed)"
+    echo ""
+    sleep 1
     
-    echo "$(t listing_backups)"
-    # Имитируем список резервных копий
-    echo "pg_000000010000000000000001  2023-01-01 12:00:00.000000+00  permanent  20.5 MiB  20.5 MiB"
-    echo "pg_000000010000000000000002  2023-01-02 12:00:00.000000+00  permanent  21.2 MiB  21.2 MiB"
+    echo -e "\e[36m> $(t listing_backups)\e[0m"
+    echo -e "  $(t demo_executing_command) \e[32mwal-g-pg backup-list\e[0m"
+    echo ""
+    echo "  name                          last_modified             wal_segment_backup_start         size       storage_size"
+    echo "  ------------------------------------------------------------------------------------------------------"
+    echo "  base_$(date +%Y%m%d)_1  $(date "+%Y-%m-%d %H:%M:%S").000000+00  permanent  20.5 MiB  20.5 MiB"
+    echo "  base_$(date +%Y%m%d)_2  $(date -d '1 hour ago' "+%Y-%m-%d %H:%M:%S").000000+00  permanent  21.2 MiB  21.2 MiB"
+    echo ""
+    sleep 1
     
     # Имитируем добавление данных
-    echo "$(t adding_data)"
-    echo "INSERT INTO demo_data (data) VALUES ('New PG data after backup');"
+    echo -e "\e[36m> $(t adding_data)\e[0m"
+    echo "  INSERT INTO demo_data (data) VALUES ('New PG data after backup');"
+    echo "  INSERT 0 1"
+    echo ""
+    echo "  SELECT * FROM demo_data;"
+    echo "   id |          data          |         created_at         "
+    echo "  ----+------------------------+---------------------------"
+    echo "    1 | PG Demo data 1         | $(date -d '1 hour ago' "+%Y-%m-%d %H:%M:%S")"
+    echo "    2 | PG Demo data 2         | $(date -d '59 min ago' "+%Y-%m-%d %H:%M:%S")"
+    echo "    3 | New PG data after backup | $(date "+%Y-%m-%d %H:%M:%S")"
+    echo "  (3 rows)"
+    echo ""
+    sleep 1
     
     # Имитируем восстановление резервной копии
-    echo "$(t restore_warning)"
-    read -p "$(t continue_restore) " confirm
+    echo -e "\e[33m$(t restore_warning)\e[0m"
+    read -p "$(t continue_pg_restore) " confirm
     if [[ $confirm == [yY] ]]; then
-        echo "$(t restoring_backup)"
-        /usr/local/bin/wal-g-pg
+        echo -e "\e[33m$(t restoring_pg_backup)\e[0m"
+        echo -e "  $(t demo_executing_command) \e[32mwal-g-pg backup-fetch LATEST\e[0m"
+        echo ""
+        echo "  $(t demo_pg_restore_process_started)"
+        echo "  $(t demo_pg_restore_stopping_postgres)"
+        echo "  $(t demo_pg_restore_downloading_backup)"
+        echo "  $(t demo_pg_restore_extracting_data)"
+        echo "  $(t demo_pg_restore_starting_postgres)"
+        echo "  $(t demo_pg_restore_completed)"
+        echo ""
+        sleep 1
         
-        echo "$(t viewing_restored_data)"
-        echo "SELECT * FROM demo_data;"
-        echo " id |     data      |         created_at         "
-        echo "----+---------------+---------------------------"
-        echo "  1 | PG Demo data 1 | 2023-01-01 12:00:00"
-        echo "  2 | PG Demo data 2 | 2023-01-01 12:01:00"
-        echo "(2 rows)"
+        echo -e "\e[36m> $(t viewing_restored_data)\e[0m"
+        echo "  SELECT * FROM demo_data;"
+        echo "   id |     data      |         created_at         "
+        echo "  ----+---------------+---------------------------"
+        echo "    1 | PG Demo data 1 | $(date -d '1 hour ago' "+%Y-%m-%d %H:%M:%S")"
+        echo "    2 | PG Demo data 2 | $(date -d '59 min ago' "+%Y-%m-%d %H:%M:%S")"
+        echo "  (2 rows)"
+        echo ""
+        sleep 1
+        
+        echo -e "  $(t demo_pg_restore_note)"
+        echo ""
     fi
     
-    echo "$(t pg_demo_complete)"
+    echo -e "\e[32m$(t pg_demo_complete)\e[0m"
     read -p "$(t return_main_menu)" _
 }
 
