@@ -83,16 +83,47 @@ start_containers() {
     sleep 5
     
     echo "$(t checking_containers)"
-    if [ "$1" == "mysql" ] && ! docker ps | grep -q wall-be-mysql; then
-        echo "$(t container_start_failed)"
-        cd - > /dev/null
-        return 1
-    fi
     
-    if [ "$1" == "postgresql" ] && ! docker ps | grep -q wall-be-postgres; then
-        echo "$(t container_start_failed)"
-        cd - > /dev/null
-        return 1
+    # Проверяем наличие необходимых контейнеров в зависимости от выбранного профиля
+    if [ "$1" == "mysql" ]; then
+        if ! docker ps | grep -q wall-be-mysql; then
+            echo "$(t mysql_container_failed)"
+            cd - > /dev/null
+            return 1
+        fi
+        if ! docker ps | grep -q wall-be; then
+            echo "$(t wallbe_container_failed)"
+            cd - > /dev/null
+            return 1
+        fi
+    elif [ "$1" == "postgresql" ]; then
+        if ! docker ps | grep -q wall-be-postgres; then
+            echo "$(t postgres_container_failed)"
+            cd - > /dev/null
+            return 1
+        fi
+        if ! docker ps | grep -q wall-be; then
+            echo "$(t wallbe_container_failed)"
+            cd - > /dev/null
+            return 1
+        fi
+    else
+        # Проверяем все контейнеры
+        if ! docker ps | grep -q wall-be-mysql; then
+            echo "$(t mysql_container_failed)"
+            cd - > /dev/null
+            return 1
+        fi
+        if ! docker ps | grep -q wall-be-postgres; then
+            echo "$(t postgres_container_failed)"
+            cd - > /dev/null
+            return 1
+        fi
+        if ! docker ps | grep -q wall-be; then
+            echo "$(t wallbe_container_failed)"
+            cd - > /dev/null
+            return 1
+        fi
     fi
     
     echo "$(t containers_started)"
@@ -182,6 +213,32 @@ docker_cleanup() {
     return 0
 }
 
+# Функция для проверки наличия контейнеров MySQL
+check_mysql_containers() {
+    if ! docker ps | grep -q wall-be-mysql; then
+        return 1
+    fi
+    
+    if ! docker ps | grep -q wall-be; then
+        return 1
+    fi
+    
+    return 0
+}
+
+# Функция для проверки наличия контейнеров PostgreSQL
+check_postgresql_containers() {
+    if ! docker ps | grep -q wall-be-postgres; then
+        return 1
+    fi
+    
+    if ! docker ps | grep -q wall-be; then
+        return 1
+    fi
+    
+    return 0
+}
+
 # Функция для запуска MySQL-демо в Docker
 mysql_docker_demo() {
     clear
@@ -190,7 +247,7 @@ mysql_docker_demo() {
     echo ""
     
     # Проверка и запуск контейнеров, если они не запущены
-    if ! docker ps | grep -q wall-be-mysql; then
+    if ! check_mysql_containers; then
         echo "$(t mysql_container_not_running)"
         echo "$(t starting_containers_automatically)"
         
@@ -275,7 +332,7 @@ postgresql_docker_demo() {
     echo ""
     
     # Проверка и запуск контейнеров, если они не запущены
-    if ! docker ps | grep -q wall-be-postgres; then
+    if ! check_postgresql_containers; then
         echo "$(t postgres_container_not_running)"
         echo "$(t starting_containers_automatically)"
         

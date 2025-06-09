@@ -1,4 +1,4 @@
-version: '3.9'
+version: '3'
 
 services:
   wall-be-mysql:
@@ -40,9 +40,6 @@ services:
       - backup_data:/backup
       - ./config:/etc/wall-be
       - ../../:/opt/wall-be
-    depends_on:
-      - wall-be-mysql
-      - wall-be-postgres
     command: >
       bash -c "apt-get update && 
       apt-get install -y curl mysql-client postgresql-client gzip bzip2 lzop lz4 pigz zstd &&

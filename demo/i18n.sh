@@ -292,6 +292,9 @@ TRANSLATIONS_EN=(
     ["schedule_demo_desc"]="Shows how to set up scheduled backups"
     ["retention_demo_desc"]="Explains backup retention policies"
     ["docker_note"]="Docker demo allows you to run demonstrations in isolated containers without affecting your system"
+    ["mysql_container_failed"]="MySQL container failed to start"
+    ["postgres_container_failed"]="PostgreSQL container failed to start"
+    ["wallbe_container_failed"]="Wall-be container failed to start"
 )
 
 # Переводы на русском
@@ -547,6 +550,9 @@ TRANSLATIONS_RU=(
     ["schedule_demo_desc"]="Показывает, как настроить запланированное резервное копирование"
     ["retention_demo_desc"]="Объясняет политики хранения резервных копий"
     ["docker_note"]="Docker-демо позволяет запускать демонстрации в изолированных контейнерах без влияния на вашу систему"
+    ["mysql_container_failed"]="Не удалось запустить контейнер MySQL"
+    ["postgres_container_failed"]="Не удалось запустить контейнер PostgreSQL"
+    ["wallbe_container_failed"]="Не удалось запустить контейнер Wall-be"
 )
 
 # Проверка наличия строк и добавление недостающих
